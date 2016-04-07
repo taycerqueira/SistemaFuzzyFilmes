@@ -43,7 +43,7 @@ public class Main {
 		int[] indicesTeste = sortearInstanciasTeste(quantidade, numInstancias);
 		
 		//Gera as regras usando wang-mendel e gera o arquivo .fcl
-		//wangMendel(indicesTeste);
+		wangMendel(indicesTeste);
 		
 		//Cria o sistema fuzzy a partir do arquivo fcl
 		FIS fis = FIS.load((nomeBase+".fcl"), true);
@@ -96,7 +96,7 @@ public class Main {
 		    WangMendel wm = new WangMendel(source, quantConjuntosFuzzy, indicesTeste);
 		    ArrayList<Regra> regras = wm.gerarRegras();
 		    
-		    System.out.println("=> Quantidade de regras geradas: " + regras.size());
+		    System.out.println("Quantidade de regras geradas: " + regras.size());
 		    
 		    long fim  = System.currentTimeMillis();  
 		    System.out.println("* Tempo de execução (min/seg): " + new SimpleDateFormat("mm:ss").format(new Date(fim - inicio)));
@@ -120,13 +120,21 @@ public class Main {
 	private static void testarSistema(int indicesTeste[], FIS fis) throws Exception{
 		
 		Instances instancias = source.getDataSet();
-		for (int k = 0; k < 100; k++) {
-		//for (int k = 0; k < source.getDataSet().size(); k++ ) {
-			
+		
+		System.out.println("=> Testando...");
+		
+		double TP = 0; //quantidade de positivos corretamente classificados
+		double TN = 0; //quantidade de negativos corretamente classificados
+		
+		double FP = 0; //quantidade de negativos que foram classificados como positivos
+		double FN = 0; //quantidade de positivos que foram classificados como negativos
+		
+		//for (int k = 0; k < 100; k++) {
+		for (int k = 0; k < source.getDataSet().size(); k++ ) {
 			//Se a instância for de teste...
 			if(isParaTeste(k, indicesTeste)){
 				
-				System.out.println("Número da instância: " + k);
+				//System.out.println("Número da instância: " + k);
 				Instance instancia = instancias.get(k);
 				//Seta as entradas
 				//Considerando que o último atributo é sempre o atributo que corresponde a classe da instância, por isso usa-se o -1
@@ -151,17 +159,48 @@ public class Main {
 				
 				//Variable tip = fis.getFunctionBlock(null).getVariable("polarity");
 				//JFuzzyChart.get().chart(tip, tip.getDefuzzifier(), true);
-				
-				
-				System.out.println("Polarity: " + fis.getVariable("polarity").getValue());
-				System.out.println("Real Polarity: " + instancia.stringValue(instancias.numAttributes() - 1));
+				 
+				String realPolarity = instancia.stringValue(instancias.numAttributes() - 1);
+				if(fis.getVariable("polarity").getValue() >= 0){
+					//System.out.println("Polarity: " + fis.getVariable("polarity").getValue() + "(POSITIVE)");
+					if(realPolarity.equals("positive")){
+						TP++;
+					}
+					else if(realPolarity.equals("negative")){
+						FP++;
+					}
+				}
+				else if(fis.getVariable("polarity").getValue() < 0){
+					//System.out.println("Polarity: " + fis.getVariable("polarity").getValue() + "(NEGATIVE)");
+					if(realPolarity.equals("negative")){
+						TN++;
+					}
+					else if(realPolarity.equals("positive")){
+						FN++;
+					}
+				}
+				else{
+					//System.out.println("Polarity: " + fis.getVariable("polarity").getValue());
+				}
+				//System.out.println("Real Polarity: " + realPolarity);
 				//JFuzzyChart.get().chart(fis.getFunctionBlock(null));
 				//System.out.println(fis);
-				break;
+				//break;
 					
 			}
 		}
 		
+		//System.out.println("Quantidade de instâncias testadas: " + indicesTeste.length);
+		System.out.println("Acertos: " + (TP + TN));
+		System.out.println("Erros: " + (FP + FN));
+		
+		double acuracia = (TP + TN)/indicesTeste.length;
+		System.out.println("Acurácia: " + acuracia);
+		
+		double TPR = TP/(TP + FN); // taxa de verdadeiros positivos
+		double TNR = TN/(TN + FP); // taxa de verdadeiros negativos
+		System.out.println("Taxa de verdadeiros positivos: " + TPR);
+		System.out.println("Taxa de verdadeiros negativos: " + TNR);
 		
 	}
 	
@@ -241,6 +280,8 @@ public class Main {
 	    //Como o JFuzzyLogica só trabalha com números reais, utilizarei {1, -1}, onde 1 é positivo e -1 negativo.
 	    texto.println("\t TERM positive := 1;");
 	    texto.println("\t TERM negative := -1;");
+	    //texto.println("\t TERM positive := (0,1) (1,0);");
+	    //texto.println("\t TERM negative := (0,0) (1,1);");
 	    //texto.println("\t METHOD : COG;"); // Use 'Center Of Gravity' defuzzification method
 	    texto.println("\t METHOD : COGS;"); // Centre of Gravity for Singletons
 	    //texto.println("\t DEFAULT := 0;"); // Default value is 0 (if no rule activates defuzzifier)
