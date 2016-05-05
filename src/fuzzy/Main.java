@@ -1,19 +1,21 @@
 package fuzzy;
 
 import wangmendel.*;
+
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Scanner;
 
 import net.sourceforge.jFuzzyLogic.*;
-import net.sourceforge.jFuzzyLogic.plot.JFuzzyChart;
-import net.sourceforge.jFuzzyLogic.rule.Variable;
-import weka.core.AttributeStats;
 import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.converters.ConverterUtils.DataSource;
@@ -25,7 +27,7 @@ public class Main {
 	static String nomeBase = "basefilmes_53atributos";
 	static DataSource source;
 	static int quantConjuntosFuzzy = 3;
-	static double porcentagemTeste = 0.1;
+	static double porcentagemTeste = 0.2;
 	
 	public static void main(String[] args) throws Exception {
 		
@@ -39,11 +41,15 @@ public class Main {
 		
 	    int quantidade = (int) (numInstancias*porcentagemTeste);
 	    System.out.println("Quantidade de instâncias de teste: " + quantidade);
+	    
 		//Separo as instâncias que irão ser utilizadas para teste
-		int[] indicesTeste = sortearInstanciasTeste(quantidade, numInstancias);
+	    //gerarInidicesTeste(quantidade, numInstancias);
+	    
+	    //Pego as instancias de teste a partir de um arquivo 
+		int[] indicesTeste = getIndicesTeste(quantidade);
 		
 		//Gera as regras usando wang-mendel e gera o arquivo .fcl
-		wangMendel(indicesTeste);
+		//wangMendel(indicesTeste);
 		
 		//Cria o sistema fuzzy a partir do arquivo fcl
 		FIS fis = FIS.load((nomeBase+".fcl"), true);
@@ -82,8 +88,6 @@ public class Main {
 	    //for(Rule r : fis.getFunctionBlock("caldeira").getFuzzyRuleBlock("No1").getRules())
 	      //System.out.println(r);
 		
-
-
 	}
 	
 	public static void wangMendel(int[] indicesTeste){
@@ -129,7 +133,6 @@ public class Main {
 		double FP = 0; //quantidade de negativos que foram classificados como positivos
 		double FN = 0; //quantidade de positivos que foram classificados como negativos
 		
-		//for (int k = 0; k < 100; k++) {
 		for (int k = 0; k < source.getDataSet().size(); k++ ) {
 			//Se a instância for de teste...
 			if(isParaTeste(k, indicesTeste)){
@@ -153,14 +156,64 @@ public class Main {
 				// Evaluate
 				fis.evaluate();
 				
-			    // Show each rule (and degree of support)
-			    //for(net.sourceforge.jFuzzyLogic.rule.Rule r : fis.getFunctionBlock(null).getFuzzyRuleBlock("No1").getRules() )
-			      //System.out.println(r);
+				/************************** FUZZY GERAL *****************************/
+				int contPositive = 0;
+				double sumPositive = 0;
+				int contNegative = 0;
+				double sumNegative = 0;
+				
+			    for(net.sourceforge.jFuzzyLogic.rule.Rule r : fis.getFunctionBlock(null).getFuzzyRuleBlock("No1").getRules()){
+			      double grau = r.getDegreeOfSupport();
+			      String classe = r.getConsequents().getFirst().getTermName();
+			      //System.out.println("indice: "+ k +" | grau: " + grau + " | classe: " + classe);
+			      if(classe.equals("positive")){
+			    	  contPositive++;
+			    	  sumPositive += grau;
+			      }
+			      else if(classe.equals("negative")){
+			    	  contNegative++;
+			    	  sumNegative += grau;
+			      }
+			    }
+			    
+			    double mediaPositive = sumPositive/contPositive;
+			    double mediaNegative = sumNegative/contNegative;
+			    
+			    //System.out.println("sum negative: " + sumNegative + " | contNegative: " + contNegative);
+			    
+			    //System.out.println("Media positive: " + mediaPositive);
+			    //System.out.println("Media negative: " + mediaNegative);
+			    
+			    String polarity = null;
+			    if(mediaPositive >= mediaNegative){
+			    	polarity = "positive";
+			    }
+			    else{
+			    	polarity = "negative";
+			    }
+			    String realPolarity = instancia.stringValue(instancias.numAttributes() - 1);
+				if(polarity.equals("positive")){
+					if(realPolarity.equals("positive")){
+						TP++;
+					}
+					else if(realPolarity.equals("negative")){
+						FP++;
+					}
+				}
+				else if(polarity.equals("negative")){
+					if(realPolarity.equals("negative")){
+						TN++;
+					}
+					else if(realPolarity.equals("positive")){
+						FN++;
+					}
+				}
+				/**********************************************************************/
 				
 				//Variable tip = fis.getFunctionBlock(null).getVariable("polarity");
 				//JFuzzyChart.get().chart(tip, tip.getDefuzzifier(), true);
-				 
-				String realPolarity = instancia.stringValue(instancias.numAttributes() - 1);
+				/************************** FUZZY CLÁSSICO *****************************/
+				/*String realPolarity = instancia.stringValue(instancias.numAttributes() - 1);
 				if(fis.getVariable("polarity").getValue() >= 0){
 					//System.out.println("Polarity: " + fis.getVariable("polarity").getValue() + "(POSITIVE)");
 					if(realPolarity.equals("positive")){
@@ -178,10 +231,9 @@ public class Main {
 					else if(realPolarity.equals("positive")){
 						FN++;
 					}
-				}
-				else{
-					//System.out.println("Polarity: " + fis.getVariable("polarity").getValue());
-				}
+				}*/
+				/**********************************************************************/
+
 				//System.out.println("Real Polarity: " + realPolarity);
 				//JFuzzyChart.get().chart(fis.getFunctionBlock(null));
 				//System.out.println(fis);
@@ -288,7 +340,7 @@ public class Main {
 	    texto.println("END_DEFUZZIFY\n");
 	    
 	    texto.println("RULEBLOCK No1");
-	    texto.println("\t AND : MIN;"); //Use 'min' for 'and'
+	    texto.println("\t AND : PROD;"); //Use 'min' or 'PROD' for 'and'
 	    texto.println("\t ACT : MIN;"); //Use 'min' activation method
 	    //texto.println("\t ACT : PROD;"); //Use 'Product' activation method
 	    texto.println("\t ACCU : MAX;\n"); //Use 'max' accumulation method
@@ -393,6 +445,48 @@ public class Main {
 	    
 	    arquivo.close();
 	    System.out.println("Arquivo contendo o RULEBLOCK gerado com sucesso.");
+		
+	}
+	
+	//Gera os indices de teste e coloca em um arquivo
+	public static void gerarInidicesTeste(int quantidade, int numInstancias){
+		
+		int[] indicesTeste = sortearInstanciasTeste(quantidade, numInstancias);
+		
+		File arquivo = new File("indicesTeste.txt");
+		
+		try(FileWriter fw = new FileWriter(arquivo)){
+			for (int indice : indicesTeste) {
+				fw.write(indice + "\r\n");
+			}
+		    fw.flush();
+		}catch(IOException ex){
+		  ex.printStackTrace();
+		}
+		
+	}
+	
+	//Lê o arquivo e retorna os indices de teste
+	public static int[] getIndicesTeste(int quantidade){
+		
+		int[] indicesTeste = new int[quantidade];
+		int i = 0;
+		
+		File arquivo = new File("indicesTeste.txt");
+		try(InputStream in = new FileInputStream(arquivo) ){
+		  Scanner scan = new Scanner(in);
+		  while(scan.hasNext()){
+		    String indice = scan.nextLine();
+		    if(indice.length() > 0){
+		    	indicesTeste[i] = Integer.parseInt(indice);
+		    	i++;
+		    }
+		  }
+		}catch(IOException ex){
+		  ex.printStackTrace();
+		}
+		
+		return indicesTeste;
 		
 	}
 
