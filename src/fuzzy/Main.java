@@ -163,17 +163,17 @@ public class Main {
 				double sumNegative = 0;
 				
 			    for(net.sourceforge.jFuzzyLogic.rule.Rule r : fis.getFunctionBlock(null).getFuzzyRuleBlock("No1").getRules()){
-			      double grau = r.getDegreeOfSupport();
-			      String classe = r.getConsequents().getFirst().getTermName();
-			      //System.out.println("indice: "+ k +" | grau: " + grau + " | classe: " + classe);
-			      if(classe.equals("positive")){
-			    	  contPositive++;
-			    	  sumPositive += grau;
-			      }
-			      else if(classe.equals("negative")){
-			    	  contNegative++;
-			    	  sumNegative += grau;
-			      }
+			    	double grau = r.getDegreeOfSupport();
+			    	String classe = r.getConsequents().getFirst().getTermName();
+			    	//System.out.println("indice: "+ k +" | grau: " + grau + " | classe: " + classe);
+			    	if(classe.equals("positive")){
+			    		contPositive++;
+			    		sumPositive += grau;
+			    	}
+			    	else if(classe.equals("negative")){
+			    		contNegative++;
+			    		sumNegative += grau;
+			    	}
 			    }
 			    
 			    double mediaPositive = sumPositive/contPositive;
